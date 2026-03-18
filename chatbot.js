@@ -28,7 +28,7 @@
     ._cb_typing span:nth-child(3){animation-delay:.4s;}
     @keyframes _cb_bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
     ._cb_emailbox{background:#fffbf0;border:1.5px solid #D4A017;border-radius:12px;padding:13px;margin-top:4px;animation:_cb_up .25s ease;}
-    ._cb_emailbox p{font-size:12.5px;color:#555;margin-bottom:9px;}
+    ._cb_emailbox p{font-size:12.5px;color:#555;margin-bottom:9px;line-height:1.5;}
     ._cb_emailrow{display:flex;gap:7px;}
     ._cb_einput{flex:1;padding:9px 11px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit;outline:none;transition:border .15s;background:#fff;}
     ._cb_einput:focus{border-color:#D4A017;}
@@ -38,6 +38,7 @@
     #_cb_input{flex:1;padding:9px 13px;border:1px solid #e5e5e3;border-radius:22px;font-size:13px;font-family:inherit;outline:none;color:#111;background:#fafafa;transition:border .15s;}
     #_cb_input:focus{border-color:#D4A017;background:#fff;}
     #_cb_input::placeholder{color:#bbb;}
+    #_cb_input:disabled{opacity:0.4;cursor:not-allowed;}
     #_cb_sendbtn{width:36px;height:36px;border-radius:50%;background:#111;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s;}
     #_cb_sendbtn:hover{background:#333;}
     ._cb_link{color:#D4A017;text-decoration:underline;cursor:pointer;font-weight:500;display:inline-block;margin-top:6px;}
@@ -64,14 +65,14 @@
     </div>
     <div id="_cb_msgs"></div>
     <div class="_cb_inputarea">
-      <input type="text" id="_cb_input" placeholder="Type hi or pick a question..." />
+      <input type="text" id="_cb_input" placeholder="Please enter your email first..." disabled />
       <button id="_cb_sendbtn"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24"><path fill="#fff" d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg></button>
     </div>
     <div class="_cb_powered">AIMCS Africa · Smart Assistant</div>
   `;
   document.body.appendChild(win);
 
-  // ── EDIT YOUR FAQ ANSWERS HERE ───────────────────────────────────────────
+  // ── FAQ DATA ─────────────────────────────────────────────────────────────
   const FAQ = {
     about: "AIMCS Africa (Asset Integrity Management Conference & Summit) is Africa's premier event focused on asset integrity, maintenance, and reliability. It brings together industry leaders, engineers, and decision-makers from across the continent and beyond. 🌍",
     when: "📅 Date: 15–17 September 2026\n📍 Venue: Cairo International Convention Centre\n📌 New Cairo, Egypt\n\nDoors open at 8:00 AM daily!",
@@ -79,7 +80,7 @@
     sponsor: "🤝 Sponsorship Packages:\n\n• Bronze – $2,500\n• Silver – $5,000\n• Gold – $10,000\n• Platinum – $20,000\n\nEach includes exhibition space, branding & delegate passes.\nEmail: sponsor@aimcs-africa.com"
   };
 
-  const MAIN_QRS = ["What is AIMCS Africa?", "Event Date & Venue", "How to Register?", "Sponsorship Details", "Get Event Updates 📩"];
+  const MAIN_QRS = ["What is AIMCS Africa?", "Event Date & Venue", "How to Register?", "Sponsorship Details"];
 
   let chatOpen = false, greeted = false, emailCollected = false;
 
@@ -91,11 +92,13 @@
     if (chatOpen && !greeted) { greeted = true; setTimeout(greet, 400); }
   });
 
+  // ── STEP 1: Greet and ask for email immediately ──────────────────────────
   function greet() {
     showTyping();
     setTimeout(() => {
       removeTyping();
-      addBot("👋 Hi there! Welcome to AIMCS Africa!\n\nI'm here to help you with everything about our upcoming event in Cairo. What would you like to know?", MAIN_QRS);
+      addBot("👋 Hello! Welcome to AIMCS Africa!\n\nWe're excited to have you here. To get started, please share your email address so we can keep you updated about our upcoming event in Cairo. 📩");
+      setTimeout(() => showEmailCapture(), 400);
     }, 800);
   }
 
@@ -149,39 +152,58 @@
 
   function removeTyping() { const t = document.getElementById('_cb_typing'); if (t) t.remove(); }
 
+  // ── Email capture box ────────────────────────────────────────────────────
   function showEmailCapture() {
     const msgs = document.getElementById('_cb_msgs');
     const box = document.createElement('div');
     box.className = '_cb_emailbox'; box.id = '_cb_emailbox';
-    box.innerHTML = `<p>Enter your email to receive updates about AIMCS Africa 2026 📩</p><div class="_cb_emailrow"><input type="email" class="_cb_einput" id="_cb_einput" placeholder="your@email.com"/><button class="_cb_esubmit" id="_cb_esubmit">Submit</button></div>`;
-    msgs.appendChild(box); msgs.scrollTop = msgs.scrollHeight;
+    box.innerHTML = `
+      <p>✉️ Enter your email address below:</p>
+      <div class="_cb_emailrow">
+        <input type="email" class="_cb_einput" id="_cb_einput" placeholder="your@email.com"/>
+        <button class="_cb_esubmit" id="_cb_esubmit">Submit</button>
+      </div>`;
+    msgs.appendChild(box);
+    msgs.scrollTop = msgs.scrollHeight;
+    setTimeout(() => { const i = document.getElementById('_cb_einput'); if(i) i.focus(); }, 100);
     document.getElementById('_cb_esubmit').addEventListener('click', submitEmail);
     document.getElementById('_cb_einput').addEventListener('keydown', e => { if (e.key === 'Enter') submitEmail(); });
   }
 
+  // ── STEP 2: After email → thank you → show FAQ ───────────────────────────
   function submitEmail() {
     const inp = document.getElementById('_cb_einput');
     const email = inp ? inp.value.trim() : '';
-    if (!email || !email.includes('@')) { inp.style.borderColor = '#ef4444'; setTimeout(() => inp.style.borderColor = '#ddd', 1500); return; }
+    if (!email || !email.includes('@')) {
+      if(inp) { inp.style.borderColor = '#ef4444'; setTimeout(() => inp.style.borderColor = '#ddd', 1500); }
+      return;
+    }
     emailCollected = true;
     const box = document.getElementById('_cb_emailbox');
     if (box) box.remove();
     addUser(email);
-    console.log('Email captured:', email); // 🔁 Replace with webhook/CRM
+    console.log('Email captured:', email); // 🔁 Replace with your webhook/CRM
+
+    // Enable the text input now
+    const textInput = document.getElementById('_cb_input');
+    if (textInput) { textInput.disabled = false; textInput.placeholder = 'Type a message or pick a topic...'; }
+
     showTyping();
     setTimeout(() => {
       removeTyping();
-      addBot("🎉 Thank you! We've got your email.\n\nWe'll keep you updated on everything about AIMCS Africa 2026 in Cairo. See you there!", MAIN_QRS);
-    }, 700);
+      addBot("🎉 Thank you! We've saved your email and will keep you updated.\n\nNow, how can I help you? Please choose a topic below or type your question:", MAIN_QRS);
+    }, 800);
   }
 
+  // ── Handle messages after email collected ────────────────────────────────
   function handleInput(text) {
+    if (!emailCollected) return;
     const t = text.toLowerCase().trim();
     addUser(text); showTyping();
     setTimeout(() => {
       removeTyping();
-      if (t.match(/^(hi|hello|hey|greetings|good|howdy)/)) {
-        addBot("👋 Hello! Welcome to AIMCS Africa!\n\nGreat to have you here. How can I help you today?", MAIN_QRS);
+      if (t.match(/^(hi|hello|hey|greetings)/)) {
+        addBot("👋 Hello again! How can I help you today?", MAIN_QRS);
       } else if (t.includes('what is') || t.includes('about') || t.includes('aimcs')) {
         addBot(FAQ.about, MAIN_QRS);
       } else if (t.includes('date') || t.includes('when') || t.includes('where') || t.includes('venue') || t.includes('location') || t.includes('event date')) {
@@ -190,21 +212,19 @@
         addBot(FAQ.register.text, MAIN_QRS, { link: FAQ.register.link, url: FAQ.register.url });
       } else if (t.includes('sponsor') || t.includes('package') || t.includes('partner') || t.includes('exhibit')) {
         addBot(FAQ.sponsor, MAIN_QRS);
-      } else if (t.includes('email') || t.includes('update') || t.includes('notify') || t.includes('get event') || t.includes('contact')) {
-        if (emailCollected) { addBot("We already have your email! ✅ You'll receive all updates from us. Anything else?", MAIN_QRS); }
-        else { addBot("Sure! Leave your email below and we'll keep you posted. 📩"); showEmailCapture(); }
       } else if (t.includes('thank')) {
-        addBot("You're welcome! 😊 We look forward to welcoming you at AIMCS Africa 2026 in Cairo!", MAIN_QRS);
+        addBot("You're welcome! 😊 We look forward to seeing you at AIMCS Africa 2026 in Cairo!", MAIN_QRS);
       } else if (t.includes('bye') || t.includes('goodbye')) {
-        addBot("Goodbye! 👋 Hope to see you at AIMCS Africa 2026. Feel free to come back anytime!", []);
+        addBot("Goodbye! 👋 See you at AIMCS Africa 2026. Feel free to come back anytime!", []);
       } else {
-        addBot("I'm here to help with questions about AIMCS Africa. Please choose a topic below:", MAIN_QRS);
+        addBot("I'm here to help with questions about AIMCS Africa. Please choose a topic:", MAIN_QRS);
       }
     }, 700);
   }
 
   function send() {
     const inp = document.getElementById('_cb_input');
+    if (!inp || inp.disabled) return;
     const text = inp.value.trim();
     if (!text) return;
     inp.value = ''; handleInput(text);
