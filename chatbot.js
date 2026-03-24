@@ -1,5 +1,7 @@
 (function () {
   const SHEET_URL = "https://script.google.com/macros/s/AKfycbxVy1qtiyteTOXr7q0vBNLvvbcxoHOnZncouWCD2AhEG6ns4qcElkwokJdNmb0e3ltt8Q/exec";
+  const MAILBITE_KEY = "9OS7K5lAbUO7H5BYrIJuXmlSQOScekK68C91";
+  const WEBSITE_NAME = "AIMCS Africa"; // ← change this per website
 
   const css = `
     #_cb_launcher{position:fixed;bottom:28px;right:28px;width:56px;height:56px;border-radius:50%;background:#D4A017;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(0,0,0,0.2);z-index:99999;transition:transform .2s;}
@@ -37,6 +39,7 @@
     ._cb_esubmit{padding:10px 13px;background:#D4A017;color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit;font-weight:600;transition:background .15s;white-space:nowrap;flex-shrink:0;}
     ._cb_esubmit:hover{background:#b8880f;}
     ._cb_esubmit:disabled{opacity:0.6;cursor:not-allowed;}
+    ._cb_errmsg{font-size:11px;color:#ef4444;margin:6px 0 0;display:none;}
     ._cb_inputarea{padding:11px 13px;border-top:1px solid #f0f0ee;display:flex;gap:8px;align-items:center;background:#fff;}
     #_cb_input{flex:1;padding:9px 13px;border:1px solid #e5e5e3;border-radius:22px;font-size:13px;font-family:inherit;outline:none;color:#111;background:#fafafa;transition:border .15s;}
     #_cb_input:focus{border-color:#D4A017;background:#fff;}
@@ -112,7 +115,8 @@
       <div class="_cb_emailrow">
         <input type="email" class="_cb_einput" id="_cb_einput" placeholder="your@email.com"/>
         <button class="_cb_esubmit" id="_cb_esubmit">Submit</button>
-      </div>`;
+      </div>
+      <p class="_cb_errmsg" id="_cb_errmsg"></p>`;
     msgs.appendChild(card);
     msgs.scrollTop = msgs.scrollHeight;
     setTimeout(() => { const i = document.getElementById('_cb_einput'); if(i) i.focus(); }, 150);
@@ -120,23 +124,54 @@
     document.getElementById('_cb_einput').addEventListener('keydown', e => { if (e.key === 'Enter') submitEmail(); });
   }
 
-  function submitEmail() {
+  async function submitEmail() {
     const inp = document.getElementById('_cb_einput');
     const btn = document.getElementById('_cb_esubmit');
+    const errEl = document.getElementById('_cb_errmsg');
     const email = inp ? inp.value.trim() : '';
-    if (!email || !email.includes('@')) {
-      if(inp) { inp.style.borderColor = '#ef4444'; setTimeout(() => inp.style.borderColor = '#ddd', 1500); }
+
+    // Basic format check
+    if (!email || !email.includes('@') || !email.includes('.')) {
+      if (inp) inp.style.borderColor = '#ef4444';
+      if (errEl) { errEl.textContent = 'Please enter a valid email address.'; errEl.style.display = 'block'; }
+      setTimeout(() => { if(inp) inp.style.borderColor = '#ddd'; }, 1500);
       return;
     }
-    if(btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
 
+    // Clear previous errors
+    if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+    if (btn) { btn.disabled = true; btn.textContent = 'Checking...'; }
+
+    try {
+      // Step 1: Mailbite validation
+      const res = await fetch(`https://mailbite.io/api/check?key=${MAILBITE_KEY}&email=${encodeURIComponent(email)}`);
+      const result = await res.json();
+
+      if (result.email_status === 'INVALID' || result.status === 'error') {
+        const msg = result.message || 'Invalid email address. Please enter a valid email.';
+        if (inp) inp.style.borderColor = '#ef4444';
+        if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; }
+        if (btn) { btn.disabled = false; btn.textContent = 'Submit'; }
+        return;
+      }
+    } catch {
+      // Mailbite unreachable — continue anyway
+    }
+
+    // Step 2: Save to Google Sheet with website name
+    if (btn) btn.textContent = 'Saving...';
     fetch(SHEET_URL, {
       method: 'POST',
       mode: 'no-cors',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email })
+      body: JSON.stringify({
+        email: email,
+        timestamp: new Date().toISOString(),
+        website: WEBSITE_NAME,
+      })
     }).catch(() => {});
 
+    // Step 3: Continue chat
     emailCollected = true;
     const card = document.getElementById('_cb_emailcard');
     if (card) card.remove();
